@@ -1,6 +1,6 @@
 import java.util.Arrays;
 
-public class Conjunto<T> implements ConjuntoTDA<T> {
+public class Conjunto<T> implements ConjuntoTDA<T>{
     T[] elementos;
     int pos;
     Conjunto(int cantidadElemento) {
