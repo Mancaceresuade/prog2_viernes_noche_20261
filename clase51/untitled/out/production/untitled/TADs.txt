@@ -1,0 +1,6 @@
+TAD Empresa
+Datos: nombre,telefonos,Lista<Empleado> empleados
+Operaciones: crear(nombre,telefonos)
+agregarEmpleado(nombre,legajo)
+IREP: nombre es un string no vacío
+

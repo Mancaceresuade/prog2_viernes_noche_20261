@@ -1,0 +1,19 @@
+{
+  "nombre":"mi empresa",
+  "telefonos": ["2345","23452","234523"],
+  "empleados": [
+    {"nombre": "juan","legajo": "23523"},
+    {"nombre": "pedro","legajo": "23523"},
+    {"nombre": "maria","legajo": "23523"}
+  ],
+  "sucursales": {
+    "1": {
+      "nombre": "sucursal1",
+      "direccion": "calle verdadera 456"
+    },
+    "2": {
+      "nombre": "sucursal2",
+      "direccion": "calle verdadera 456"
+    }
+  }
+}
