@@ -29,4 +29,8 @@ public class Equipo implements Comparable<Equipo> {
 
         return aux ;
     }
+
+    public String toJson() {
+        return "{\"nombre\":\"" + nombre + "\", \"rating\":" + rating + "}";
+    }
 }

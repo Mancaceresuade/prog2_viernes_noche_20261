@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador Árbol del Mundial</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --neon-blue: #38bdf8;
+            --neon-purple: #a855f7;
+            --text-color: #f8fafc;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        h1 {
+            margin: 20px 0;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        #tree-container {
+            flex-grow: 1;
+            width: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+        }
+
+        .node {
+            position: absolute;
+            background: var(--card-bg);
+            border: 2px solid var(--neon-blue);
+            border-radius: 12px;
+            padding: 15px;
+            width: 150px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .node:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px var(--neon-blue);
+            border-color: var(--neon-purple);
+        }
+
+        .node .name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .node .rating {
+            font-size: 0.9rem;
+            color: var(--neon-blue);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        line {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🏆 Árbol del Mundial 🏆</h1>
+
+    <div id="tree-container">
+        <svg id="svg-connections"></svg>
+    </div>
+
+    <script>
+        const container = document.getElementById('tree-container');
+        const svg = document.getElementById('svg-connections');
+        const nodeWidth = 150;
+        const levelHeight = 120;
+
+        async function loadTree() {
+            try {
+                const response = await fetch('/api/arbol');
+                const tree = await response.json();
+                renderNode(tree, container.offsetWidth / 2, 0, container.offsetWidth / 4);
+            } catch (error) {
+                console.error("Error cargando el árbol:", error);
+            }
+        }
+
+        function renderNode(node, x, y, xOffset) {
+            if (!node || node === "null") return;
+
+            // Crear el elemento del nodo
+            const div = document.createElement('div');
+            div.className = 'node';
+            div.style.left = `${x - (nodeWidth / 2)}px`;
+            div.style.top = `${y}px`;
+
+            const name = node.equipo.nombre || node.equipo;
+            const rating = node.equipo.rating !== undefined ? node.equipo.rating : "";
+
+            div.innerHTML = `
+                <span class="name">${name}</span>
+                <span class="rating">${rating ? 'Rating: ' + rating : ''}</span>
+            `;
+            container.appendChild(div);
+
+            // Renderizar hijos
+            if (node.izq) {
+                const childX = x - xOffset;
+                const childY = y + levelHeight;
+                drawConnection(x, y + 50, childX, childY);
+                renderNode(node.izq, childX, childY, xOffset / 1.8);
+            }
+
+            if (node.der) {
+                const childX = x + xOffset;
+                const childY = y + levelHeight;
+                drawConnection(x, y + 50, childX, childY);
+                renderNode(node.der, childX, childY, xOffset / 1.8);
+            }
+        }
+
+        function drawConnection(x1, y1, x2, y2) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", x1);
+            line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2);
+            line.setAttribute("y2", y2);
+            svg.appendChild(line);
+        }
+
+        window.onload = loadTree;
+    </script>
+</body>
+</html>

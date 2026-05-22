@@ -52,6 +52,11 @@ public class Arbol<T extends Comparable<T>> {
         return buscarNombreRec(nodo.der, nombre);
     }
 
+    public String toJson() {
+        if (raiz == null) return "null";
+        return raiz.toJson();
+    }
+
 }
 
 
@@ -66,5 +71,22 @@ class Nodo<T extends Comparable<T>> {
         return "Nodo{" +
                 "equipo=" + equipo +
                 '}';
+    }
+
+    public String toJson() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        
+        // Tratar el equipo
+        if (equipo instanceof Equipo) {
+            sb.append("\"equipo\":").append(((Equipo)equipo).toJson());
+        } else {
+            sb.append("\"equipo\":\"").append(equipo.toString()).append("\"");
+        }
+        
+        sb.append(", \"izq\":").append(izq == null ? "null" : izq.toJson());
+        sb.append(", \"der\":").append(der == null ? "null" : der.toJson());
+        sb.append("}");
+        return sb.toString();
     }
 }
