@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎮 GrafoGame — AyED 2 UADE</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --orange: #e3b341; --purple: #bc8cff; --muted: #8b949e;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: #e6edf3; font-family: 'Segoe UI', sans-serif; }
+
+  /* NAV */
+  .navbar { background: #161b22 !important; border-bottom: 1px solid var(--border); }
+  .navbar-brand { color: var(--accent) !important; font-weight: 700; letter-spacing: -0.5px; font-size: 1.1rem; }
+
+  /* TABS */
+  .nav-tabs .nav-link { color: var(--muted); border-radius: 8px 8px 0 0; }
+  .nav-tabs .nav-link.active { background: var(--card); color: var(--accent); border-color: var(--border) var(--border) var(--card); }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .card-header { background: #1c2128; border-bottom: 1px solid var(--border); font-weight: 600; }
+
+  /* GRAFO SVG */
+  #grafoSvg, #grafoSvg2 { width: 100%; height: 480px; background: #0a1420; border-radius: 10px; border: 1px solid var(--border); }
+  .mapa-fondo { pointer-events: none; }
+  .mapa-pais { stroke: #3d5a80; stroke-width: 2; }
+  .mapa-can { fill: #1a3348; opacity: 0.95; }
+  .mapa-usa { fill: #1e3d63; opacity: 0.95; }
+  .mapa-mex { fill: #3d3520; opacity: 0.95; }
+  .mapa-label { fill: #5a7a9a; font-size: 22px; font-weight: 700; opacity: 0.55; font-family: 'Segoe UI', sans-serif; }
+  .panel-unirse-compact .card-body { padding: 0.75rem 1rem; }
+  .node circle { stroke-width: 2.5; cursor: grab; transition: r 0.15s; }
+  .node.dragging circle { cursor: grabbing; }
+  .node circle:hover { r: 28; }
+  .node text { font-size: 11px; fill: #e6edf3; pointer-events: none; text-anchor: middle; dominant-baseline: central; font-weight: 600; }
+  .link { stroke: #6e9ac7; stroke-width: 3.5; stroke-linecap: round; opacity: 0.85; }
+  .link-label { font-size: 11px; fill: #e6edf3; font-weight: 700; paint-order: stroke; stroke: #0d1117; stroke-width: 3px; }
+
+  /* CAMINO ANIMADO */
+  .link-highlight { stroke: var(--accent); stroke-width: 4; }
+  .link-bfs { stroke: var(--green); stroke-width: 3; }
+  .link-dfs { stroke: var(--purple); stroke-width: 3; }
+  .node-visited { fill: var(--orange) !important; }
+  .node-path { fill: var(--accent) !important; }
+  .node-start { fill: var(--green) !important; }
+  .node-end { fill: var(--red) !important; }
+
+  /* TOOLTIP SEDE */
+  #nodoTooltip {
+    position: fixed; z-index: 2000; display: none; max-width: 300px;
+    padding: 12px 14px; background: #1c2128; border: 1px solid var(--accent);
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+    pointer-events: none; font-size: .85rem; line-height: 1.45;
+  }
+  #nodoTooltip .tt-titulo { font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  #nodoTooltip .tt-estadio { color: #e6edf3; }
+  #nodoTooltip .tt-nota { color: var(--muted); font-size: .8rem; margin-top: 6px; }
+
+  /* RANKING */
+  .rank-row { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+              padding: 10px 16px; margin: 6px 0; display: flex; align-items: center; gap: 12px;
+              transition: background 0.3s; }
+  .rank-row.correcto  { border-color: var(--green); background: #1a2d1a; }
+  .rank-row.incorrecto{ border-color: var(--red); }
+  .rank-row.esperando { border-color: var(--orange); }
+  .rank-num { font-size: 1.2rem; font-weight: 700; width: 36px; color: var(--muted); }
+  .rank-num.gold   { color: #FFD700; }
+  .rank-num.silver { color: #C0C0C0; }
+  .rank-num.bronze { color: #CD7F32; }
+  .rank-nombre { flex: 1; font-weight: 600; }
+  .rank-pts { font-size: 1.1rem; font-weight: 700; color: var(--accent); min-width: 60px; text-align: right; }
+  .rank-badge { font-size: .7rem; padding: 2px 8px; border-radius: 20px; }
+  .badge-correcto  { background: #1a4a1a; color: var(--green); }
+  .badge-incorrecto{ background: #4a1a1a; color: var(--red); }
+  .badge-esperando { background: #3a2f00; color: var(--orange); }
+  .badge-racha { background: #2d1a4a; color: var(--purple); }
+
+  /* PREGUNTA */
+  .pregunta-box { background: #1c2128; border: 1px solid var(--accent); border-radius: 10px;
+                  padding: 20px; margin-bottom: 16px; }
+  .pregunta-tipo { font-size: .75rem; font-weight: 700; letter-spacing: 1px; color: var(--orange); }
+  .pregunta-texto { font-size: 1rem; margin: 8px 0; line-height: 1.5; }
+  .timer-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .timer-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width 1s linear, background 0.5s; }
+
+  /* MATRIZ */
+  .mat-table { font-size: .65rem; border-collapse: collapse; }
+  .mat-table td, .mat-table th { border: 1px solid var(--border); padding: 4px 6px; text-align: center; min-width: 28px; }
+  .mat-table th { background: #1c2128; color: var(--accent); font-weight: 600; }
+  .mat-cell-on  { background: #1a4a1a; color: var(--green); font-weight: 700; }
+  .mat-cell-off { color: var(--muted); }
+  .mat-diag { background: #1c2128; color: var(--border); }
+
+  /* ADMIN */
+  .admin-badge { background: var(--red); color: white; font-size: .7rem; padding: 2px 8px; border-radius: 20px; font-weight: 700; }
+
+  /* RESPUESTA INPUT */
+  .camino-input { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .nodo-btn { background: #1c2128; border: 1px solid var(--border); color: #e6edf3; border-radius: 8px;
+              padding: 6px 12px; cursor: pointer; font-size: .85rem; transition: all .15s; font-family: monospace; }
+  .nodo-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nodo-btn.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 700; }
+  .camino-preview { font-family: monospace; color: var(--accent); font-size: .9rem; margin: 8px 0;
+                    background: #0d1117; padding: 6px 12px; border-radius: 6px; min-height: 32px; }
+
+  /* ANIMACIONES */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .pulsing { animation: pulse 1s infinite; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .slide-in { animation: slideIn .3s ease; }
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark px-3 py-2">
+  <span class="navbar-brand">🎮 GrafoGame</span>
+  <span class="text-muted small">AyED 2 — UADE &nbsp;|&nbsp; BFS / DFS / Matriz de Adyacencia</span>
+  <button class="btn btn-sm btn-outline-danger ms-2" onclick="openAdmin()">Admin</button>
+</nav>
+
+<div class="container-fluid px-3 pt-2 pb-3">
+
+  <!-- TABS PRINCIPAL -->
+  <ul class="nav nav-tabs mb-2" id="mainTabs">
+    <li class="nav-item"><a class="nav-link active" href="#" onclick="showTab('juego');return false">🎯 Juego</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('grafo');return false">🗺️ Grafo</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('matriz');return false">📊 Matriz</a></li>
+    <li class="nav-item"><a class="nav-link" href="#" onclick="showTab('ranking');return false">🏆 Ranking</a></li>
+  </ul>
+
+  <!-- TAB JUEGO -->
+  <div id="tabJuego">
+    <div class="row g-2 align-items-start">
+      <div class="col-lg-8 order-1">
+        <div class="card mb-2">
+          <div class="card-header d-flex align-items-center gap-2 py-2">
+            <span class="small">🌎 Mundial 2026 — EE.UU. · México · Canadá</span>
+            <span class="text-muted small d-none d-md-inline">Clic = camino · Arrastrá = mover sede</span>
+          </div>
+          <div class="card-body p-1">
+            <svg id="grafoSvg"></svg>
+            <div class="px-3 pb-3">
+              <div class="text-muted small">Camino seleccionado:</div>
+              <div class="camino-preview" id="caminoPreview">— ninguno —</div>
+              <div id="avisoUnirse" class="alert alert-warning py-2 px-3 mt-2 mb-0 small" role="alert">
+                👤 Unite con tu nombre (panel derecho) para poder enviar tu respuesta.
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="deshacerUltimoNodo()" id="btnDeshacer" disabled>↩ Quitar último nodo</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarCamino()">Limpiar todo</button>
+                <button type="button" class="btn btn-sm btn-success ms-auto" onclick="enviarRespuesta()" id="btnEnviar" disabled title="Unite al juego primero">Enviar respuesta</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="preguntaBox">
+          <div class="card p-3 text-center text-muted">
+            <div style="font-size:1.5rem">⏳</div>
+            <p class="mb-0 small">Esperando que el profe active una pregunta...</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 order-2">
+        <div id="panelUnirse" class="card panel-unirse-compact mb-2">
+          <div class="card-body">
+            <h6 class="mb-1">👤 Ingresá al juego</h6>
+            <p class="text-muted small mb-2">Tu nombre para el ranking en vivo</p>
+            <div class="input-group input-group-sm">
+              <input type="text" id="inputNombre" class="form-control" placeholder="Tu nombre..." maxlength="30" onkeydown="if(event.key==='Enter')unirse()">
+              <button class="btn btn-primary" onclick="unirse()">Unirse</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header py-2">🏆 Ranking en vivo</div>
+          <div class="card-body p-2" id="rankingJuego" style="max-height:520px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB GRAFO -->
+  <div id="tabGrafo" style="display:none">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center gap-2">
+        <span>🗺️ Grafo interactivo — Sedes del Mundial 2026</span>
+        <span class="text-muted small">Arrastrá los nodos para reacomodar (las aristas siguen conectadas)</span>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="restaurarPosiciones()">↩ Restaurar mapa</button>
+      </div>
+      <div class="card-body p-1">
+        <svg id="grafoSvg2"></svg>
+        <div class="px-3 pb-3">
+          <div class="row g-2 mt-1">
+            <div class="col-md-6">
+              <div class="card p-3">
+                <div class="fw-bold mb-2 text-success">▶ BFS desde nodo:</div>
+                <div class="d-flex gap-2">
+                  <select id="bfsOrigen" class="form-select form-select-sm"></select>
+                  <button class="btn btn-sm btn-success" onclick="animarBFS()">Animar BFS</button>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card p-3">
+                <div class="fw-bold mb-2 text-purple" style="color:var(--purple)">▶ DFS desde nodo:</div>
+                <div class="d-flex gap-2">
+                  <select id="dfsOrigen" class="form-select form-select-sm"></select>
+                  <button class="btn btn-sm btn-outline-light" style="border-color:var(--purple);color:var(--purple)" onclick="animarDFS()">Animar DFS</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="ordenVisita" class="mt-2 p-2 rounded" style="background:#0d1117;font-family:monospace;font-size:.85rem;color:var(--accent)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB MATRIZ -->
+  <div id="tabMatriz" style="display:none">
+    <div class="card">
+      <div class="card-header">📊 Matriz de Adyacencia</div>
+      <div class="card-body">
+        <p class="text-muted small">Cada celda [i][j] indica el <strong>peso</strong> de la arista entre el nodo i y el nodo j. 0 = sin conexión.</p>
+        <div style="overflow-x:auto" id="matrizContainer"></div>
+        <div class="mt-3 row g-2">
+          <div class="col-md-4"><div class="card p-3">
+            <div class="fw-bold mb-2 small">Consultar arista</div>
+            <div class="d-flex gap-1 flex-wrap">
+              <select id="qU" class="form-select form-select-sm"></select>
+              <select id="qV" class="form-select form-select-sm"></select>
+              <button class="btn btn-sm btn-outline-primary" onclick="consultarArista()">Consultar</button>
+            </div>
+            <div id="consultaResult" class="mt-2 small font-monospace"></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB RANKING -->
+  <div id="tabRanking" style="display:none">
+    <div class="card">
+      <div class="card-header">🏆 Ranking global</div>
+      <div class="card-body" id="rankingGlobal"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL ADMIN -->
+<div class="modal fade" id="adminLoginModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content" style="background:#161b22;border:1px solid #30363d">
+      <div class="modal-header border-secondary"><h6 class="modal-title">🔒 Admin</h6></div>
+      <div class="modal-body">
+        <input type="password" id="adminLoginPass" class="form-control" placeholder="Contraseña"
+               onkeydown="if(event.key==='Enter')adminLogin()">
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-primary w-100" onclick="adminLogin()">Ingresar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="adminModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" style="background:#161b22;border:1px solid #30363d">
+      <div class="modal-header border-secondary">
+        <h6 class="modal-title">⚙️ Panel Admin <span class="admin-badge">PROFE</span></h6>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="card p-3">
+              <div class="fw-bold mb-2">🎯 Activar pregunta</div>
+              <div id="listaPreguntasAdmin"></div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card p-3">
+              <div class="fw-bold mb-2">➕ Nueva pregunta</div>
+              <select id="nuevoTipo" class="form-select form-select-sm mb-2">
+                <option value="BFS_CAMINO">BFS — Camino más corto</option>
+                <option value="BFS_ORDEN">BFS — Orden de visita</option>
+                <option value="DFS_ORDEN">DFS — Orden de visita</option>
+                <option value="MATRIZ_QUERY">Matriz — Consultar arista</option>
+              </select>
+              <div class="d-flex gap-2 mb-2">
+                <div class="flex-fill">
+                  <label class="text-muted" style="font-size:.7rem">Origen</label>
+                  <select id="nuevoOrigen" class="form-select form-select-sm"></select>
+                </div>
+                <div class="flex-fill">
+                  <label class="text-muted" style="font-size:.7rem">Destino</label>
+                  <select id="nuevoDestino" class="form-select form-select-sm"></select>
+                </div>
+              </div>
+              <button class="btn btn-success btn-sm w-100" onclick="crearPregunta()">Crear y activar</button>
+            </div>
+            <div class="card p-3 mt-2">
+              <div class="fw-bold mb-2">🔗 Editar arista</div>
+              <div class="d-flex gap-2 mb-2">
+                <select id="aristU" class="form-select form-select-sm"></select>
+                <select id="aristV" class="form-select form-select-sm"></select>
+                <input type="number" id="aristPeso" class="form-control form-control-sm" placeholder="Peso (0=borrar)" min="0" max="99" value="1" style="max-width:80px">
+              </div>
+              <button class="btn btn-warning btn-sm w-100" onclick="editarArista()">Actualizar arista</button>
+            </div>
+          </div>
+        </div>
+        <div class="card p-3 mt-3">
+          <div class="fw-bold mb-2"><span class="admin-badge">PROFE</span> Modo demo</div>
+          <p class="text-muted small mb-2">Unite con tu nombre si querés probar el envío como alumno.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-info" onclick="completarAutomatico(false); bootstrap.Modal.getInstance(document.getElementById('adminModal'))?.hide(); showTab('juego');">✨ Rellenar solución en el grafo</button>
+            <button class="btn btn-sm btn-info" onclick="completarAutomatico(true)" id="btnCompletarEnviar">📤 Rellenar y enviar respuesta</button>
+          </div>
+        </div>
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <button class="btn btn-sm btn-outline-info" onclick="mostrarSolucion()">👁️ Mostrar solución al curso</button>
+          <button class="btn btn-sm btn-outline-danger ms-auto" onclick="reiniciar()">🔄 Reiniciar juego</button>
+        </div>
+        <p class="text-muted small mt-2 mb-0">Tip: activá una pregunta con los botones de arriba. Los alumnos la ven en la pestaña Juego.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="nodoTooltip" role="tooltip"></div>
+
+<script>
+// ─── ESTADO CLIENTE ──────────────────────────────────────────
+let S = {}; // state del servidor
+let me = localStorage.getItem('grafogame_nombre') || null;
+let adminPass = null;
+let caminoSeleccionado = []; // nodos clickeados por el alumno
+let simulacionActiva = false;
+let arrastrandoNodo = false;
+let huboDragReciente = false;
+let NODOS = [], MATRIZ = [];
+
+// ─── POSICIONES DE NODOS (mapa aproximado de sedes, arrastrables) ───
+// Posiciones calibradas sobre mapa Norteamérica (viewBox 1000×700)
+const POS_DEFAULT = [
+  {x:0.867,y:0.262}, {x:0.072,y:0.437}, {x:0.633,y:0.278}, {x:0.500,y:0.484}, {x:0.522,y:0.579},
+  {x:0.844,y:0.627}, {x:0.083,y:0.175}, {x:0.911,y:0.222}, {x:0.050,y:0.341}, {x:0.722,y:0.516},
+  {x:0.422,y:0.786}, {x:0.344,y:0.833}, {x:0.467,y:0.706}, {x:0.811,y:0.183}, {x:0.078,y:0.119}
+];
+let POS = POS_DEFAULT.map(p => ({x: p.x, y: p.y}));
+
+function cargarPosiciones() {
+  try {
+    const raw = localStorage.getItem('grafogame_pos_v2') || localStorage.getItem('grafogame_pos');
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length === POS_DEFAULT.length) {
+      POS = arr.map(p => ({ x: +p.x, y: +p.y }));
+    }
+  } catch (e) { /* ignorar */ }
+}
+function guardarPosiciones() {
+  localStorage.setItem('grafogame_pos_v2', JSON.stringify(POS));
+}
+function restaurarPosiciones() {
+  POS = POS_DEFAULT.map(p => ({ x: p.x, y: p.y }));
+  localStorage.removeItem('grafogame_pos');
+  localStorage.removeItem('grafogame_pos_v2');
+  renderGrafoSvg('grafoSvg');
+  renderGrafoSvg('grafoSvg2');
+  actualizarCaminoVisual();
+}
+function posToPx(p, W, H) {
+  return { x: p.x * W * 0.9 + W * 0.05, y: p.y * H * 0.9 + H * 0.05 };
+}
+function pxToPos(px, py, W, H) {
+  return {
+    x: Math.max(0, Math.min(1, (px - W * 0.05) / (W * 0.9))),
+    y: Math.max(0, Math.min(1, (py - H * 0.05) / (H * 0.9)))
+  };
+}
+function moverNodoEnPantalla(idx) {
+  ['grafoSvg', 'grafoSvg2'].forEach(svgId => {
+    const svgEl = document.getElementById(svgId);
+    if (!svgEl) return;
+    const W = svgEl.clientWidth || 600, H = svgEl.clientHeight || 480;
+    const { x, y } = posToPx(POS[idx], W, H);
+    d3.select('#' + svgId).select('#node-group-' + svgId + '-' + idx)
+      .attr('transform', `translate(${x},${y})`);
+    actualizarAristasNodo(svgId, idx, W, H);
+  });
+}
+function actualizarAristasNodo(svgId, idx, W, H) {
+  const svg = d3.select('#' + svgId);
+  for (let j = 0; j < NODOS.length; j++) {
+    if (j === idx) continue;
+    const i = Math.min(idx, j), k = Math.max(idx, j);
+    if (!MATRIZ[i] || MATRIZ[i][k] === 0) continue;
+    const p1 = posToPx(POS[i], W, H), p2 = posToPx(POS[k], W, H);
+    svg.select('#link-' + svgId + '-' + i + '-' + k)
+      .attr('x1', p1.x).attr('y1', p1.y).attr('x2', p2.x).attr('y2', p2.y);
+    svg.select('#link-label-' + svgId + '-' + i + '-' + k)
+      .attr('x', (p1.x + p2.x) / 2).attr('y', (p1.y + p2.y) / 2 - 4);
+  }
+}
+
+const COLORES_NODO = [
+  '#58a6ff','#3fb950','#f85149','#e3b341','#bc8cff',
+  '#79c0ff','#56d364','#ff7b72','#d2a8ff','#ffa657',
+  '#58a6ff','#3fb950','#e3b341','#bc8cff','#79c0ff'
+];
+
+// Sedes del Mundial FIFA 2026 (dato pedagógico / referencia)
+const SEDES = [
+  { nombre: 'Nueva York / New Jersey', pais: 'EE.UU.', estadio: 'MetLife Stadium (East Rutherford)', nota: 'Gran área metropolitana del noreste.' },
+  { nombre: 'Los Ángeles', pais: 'EE.UU.', estadio: 'SoFi Stadium (Inglewood)', nota: 'Costa oeste; hub de entretenimiento y deportes.' },
+  { nombre: 'Chicago', pais: 'EE.UU.', estadio: 'Soldier Field', nota: 'Corazón del Medio Oeste estadounidense.' },
+  { nombre: 'Dallas', pais: 'EE.UU.', estadio: 'AT&T Stadium (Arlington)', nota: 'Enlace clave hacia México y el sur.' },
+  { nombre: 'Houston', pais: 'EE.UU.', estadio: 'NRG Stadium', nota: 'Puerto y ciudad multicultural del Golfo.' },
+  { nombre: 'Miami', pais: 'EE.UU.', estadio: 'Hard Rock Stadium (Miami Gardens)', nota: 'Puerta de entrada al Caribe y Latinoamérica.' },
+  { nombre: 'Seattle', pais: 'EE.UU.', estadio: 'Lumen Field', nota: 'Noroeste del Pacífico, cerca de Canadá.' },
+  { nombre: 'Boston', pais: 'EE.UU.', estadio: 'Gillette Stadium (Foxborough)', nota: 'Región histórica de Nueva Inglaterra.' },
+  { nombre: 'San Francisco / Bay Area', pais: 'EE.UU.', estadio: "Levi's Stadium (Santa Clara)", nota: 'Silicon Valley y costa californiana.' },
+  { nombre: 'Atlanta', pais: 'EE.UU.', estadio: 'Mercedes-Benz Stadium', nota: 'Hub del sureste con gran conectividad aérea.' },
+  { nombre: 'Ciudad de México', pais: 'México', estadio: 'Estadio Azteca', nota: 'Único estadio en tres Mundiales (1970, 1986, 2026).' },
+  { nombre: 'Guadalajara', pais: 'México', estadio: 'Estadio Akron', nota: 'Cuna del fútbol mexicano en el occidente.' },
+  { nombre: 'Monterrey', pais: 'México', estadio: 'Estadio BBVA', nota: 'Norte industrial y fronterizo de México.' },
+  { nombre: 'Toronto', pais: 'Canadá', estadio: 'BMO Field', nota: 'Mayor ciudad de Canadá; sede co-anfitriona.' },
+  { nombre: 'Vancouver', pais: 'Canadá', estadio: 'BC Place', nota: 'Costa del Pacífico canadiense.' },
+];
+
+// ─── INIT ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  cargarPosiciones();
+  if (me) {
+    document.getElementById('panelUnirse').style.display = 'none';
+  }
+  load();
+  setInterval(load, 3000); // polling cada 3s para ranking en vivo
+});
+
+async function load() {
+  const r = await api('/api/state');
+  S = r;
+  NODOS = S.nodos || [];
+  MATRIZ = S.matriz || [];
+  renderTodo();
+}
+
+function renderTodo() {
+  renderPregunta();
+  renderRanking();
+  if (!arrastrandoNodo) {
+    renderGrafoSvg('grafoSvg');
+    renderGrafoSvg('grafoSvg2');
+  }
+  renderMatriz();
+  poblarSelectores();
+  actualizarCaminoUI();
+}
+
+// ─── PREGUNTA ─────────────────────────────────────────────────
+function renderPregunta() {
+  const box = document.getElementById('preguntaBox');
+  const p = S.pregunta;
+  if (!p || !p.activa) {
+    box.innerHTML = `<div class="card p-4 text-center text-muted">
+      <div style="font-size:2rem">⏳</div>
+      <p>Esperando que el profe active una pregunta...</p>
+    </div>`;
+    const b1 = document.getElementById('btnEnviar');
+    const b2 = document.getElementById('btnDeshacer');
+    if (b1) b1.disabled = true;
+    if (b2) b2.disabled = true;
+    return;
+  }
+
+  // verificar si ya respondí
+  const miDato = S.ranking?.find(r => r.nombre === me);
+  const yaRespondi = miDato?.respondio;
+
+  const pct = Math.max(0, Math.min(100, (1 - p.transcurrido / p.tiempoLimite) * 100));
+  const color = pct > 50 ? 'var(--green)' : pct > 20 ? 'var(--orange)' : 'var(--red)';
+
+  box.innerHTML = `<div class="pregunta-box slide-in">
+    <div class="d-flex justify-content-between align-items-start">
+      <span class="pregunta-tipo">${p.tipo.replace('_',' ')}</span>
+      <span class="text-muted small">#${p.id}</span>
+    </div>
+    <div class="pregunta-texto">${p.enunciado.replace(/\\n/g,'<br>')}</div>
+    <div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:${pct}%;background:${color}"></div></div>
+    <div class="d-flex justify-content-between mt-1">
+      <span class="text-muted small">⏱️ ${p.transcurrido}s / ${p.tiempoLimite}s</span>
+      ${yaRespondi ? `<span class="badge badge-correcto">✅ Respondido</span>` : `<span class="pulsing text-warning small">● Respondiendo...</span>`}
+    </div>
+  </div>`;
+
+  const btnEnviar = document.getElementById('btnEnviar');
+  const btnDeshacer = document.getElementById('btnDeshacer');
+  if (btnEnviar) {
+    btnEnviar.disabled = yaRespondi || !me || caminoSeleccionado.length === 0;
+    btnEnviar.title = me ? 'Enviar tu camino' : 'Unite al juego primero';
+  }
+  if (btnDeshacer) btnDeshacer.disabled = yaRespondi || !me || caminoSeleccionado.length === 0;
+  const aviso = document.getElementById('avisoUnirse');
+  if (aviso) aviso.style.display = me ? 'none' : '';
+}
+
+// ─── GRAFO SVG ────────────────────────────────────────────────
+const dragNodo = d3.drag()
+  .clickDistance(10)
+  .on('start', function(evt) {
+    arrastrandoNodo = true;
+    huboDragReciente = false;
+    d3.select(this).classed('dragging', true).raise();
+    ocultarTooltipSede();
+  })
+  .on('drag', function(evt) {
+    huboDragReciente = true;
+    const idx = +this.getAttribute('data-idx');
+    const svgId = this.getAttribute('data-svg');
+    const svgEl = document.getElementById(svgId);
+    if (!svgEl || isNaN(idx)) return;
+    const W = svgEl.clientWidth || 600, H = svgEl.clientHeight || 480;
+    const [mx, my] = d3.pointer(evt, svgEl);
+    POS[idx] = pxToPos(mx, my, W, H);
+    moverNodoEnPantalla(idx);
+  })
+  .on('end', function() {
+    d3.select(this).classed('dragging', false);
+    arrastrandoNodo = false;
+    if (huboDragReciente) {
+      guardarPosiciones();
+      setTimeout(() => { huboDragReciente = false; }, 80);
+    }
+  });
+
+function dibujarMapaFondo(svg, W, H) {
+  const ox = W * 0.05, oy = H * 0.05, sw = W * 0.9, sh = H * 0.9;
+  const g = svg.append('g').attr('class', 'mapa-fondo')
+    .attr('transform', 'translate(' + ox + ',' + oy + ') scale(' + (sw / 1000) + ',' + (sh / 700) + ')');
+  g.append('rect').attr('width', 1000).attr('height', 700).attr('fill', '#0a1420');
+  g.append('path').attr('class', 'mapa-pais mapa-can')
+    .attr('d', 'M55,35 L945,42 L925,215 L70,198 Z');
+  g.append('path').attr('class', 'mapa-pais mapa-usa')
+    .attr('d', 'M70,198 L925,215 L895,485 L95,468 Z');
+  g.append('path').attr('class', 'mapa-pais mapa-mex')
+    .attr('d', 'M185,468 L855,492 L795,665 L255,648 L165,535 Z');
+  [['CANADÁ', 500, 115], ['EE.UU.', 500, 340], ['MÉXICO', 490, 575]].forEach(function(t) {
+    g.append('text').attr('class', 'mapa-label').attr('x', t[1]).attr('y', t[2])
+      .attr('text-anchor', 'middle').text(t[0]);
+  });
+}
+
+function renderGrafoSvg(svgId) {
+  if (!NODOS.length || !MATRIZ.length) return;
+  const svgEl = document.getElementById(svgId);
+  if (!svgEl) return;
+  const W = svgEl.clientWidth || 600, H = svgEl.clientHeight || 480;
+
+  const svg = d3.select('#' + svgId);
+  svg.selectAll('*').remove();
+
+  dibujarMapaFondo(svg, W, H);
+
+  // Aristas
+  for (let i = 0; i < NODOS.length; i++) {
+    for (let j = i + 1; j < NODOS.length; j++) {
+      if (MATRIZ[i][j] === 0) continue;
+      const p1 = posToPx(POS[i], W, H), p2 = posToPx(POS[j], W, H);
+      svg.append('line').attr('class', 'link')
+        .attr('x1', p1.x).attr('y1', p1.y).attr('x2', p2.x).attr('y2', p2.y)
+        .attr('id', 'link-' + svgId + '-' + i + '-' + j);
+      svg.append('text').attr('class', 'link-label')
+        .attr('x', (p1.x + p2.x) / 2).attr('y', (p1.y + p2.y) / 2 - 4)
+        .attr('id', 'link-label-' + svgId + '-' + i + '-' + j)
+        .text(MATRIZ[i][j]);
+    }
+  }
+
+  // Nodos (arrastrables; clic corto sigue armando el camino en Juego)
+  NODOS.forEach((nombre, idx) => {
+    const { x, y } = posToPx(POS[idx], W, H);
+    const g = svg.append('g').attr('class', 'node')
+      .attr('id', 'node-group-' + svgId + '-' + idx)
+      .attr('data-idx', idx)
+      .attr('data-svg', svgId)
+      .attr('transform', `translate(${x},${y})`)
+      .call(dragNodo);
+
+    g.append('circle').attr('r', 24)
+      .attr('fill', COLORES_NODO[idx % COLORES_NODO.length])
+      .attr('stroke', '#0d1117').attr('id', 'node-' + svgId + '-' + idx)
+      .on('click', () => clickNodo(idx));
+
+    g.on('mouseenter', (evt) => mostrarTooltipSede(evt, idx))
+      .on('mousemove', moverTooltipSede)
+      .on('mouseleave', ocultarTooltipSede);
+
+    g.append('text').attr('dy', '0.35em').attr('font-size', '10px')
+      .text(nombre.slice(0, 3));
+    g.append('text').attr('dy', '2.1em').attr('font-size', '9px').attr('fill', 'var(--muted)')
+      .text(idx);
+  });
+}
+
+// ─── TOOLTIP SEDE ─────────────────────────────────────────────
+function mostrarTooltipSede(evt, idx) {
+  const tt = document.getElementById('nodoTooltip');
+  const sede = SEDES[idx];
+  const codigo = NODOS[idx] || ('Nodo ' + idx);
+  if (!tt || !sede) return;
+  tt.innerHTML = `<div class="tt-titulo">${codigo} · Nodo ${idx}</div>`
+    + `<div><strong>${sede.nombre}</strong> (${sede.pais})</div>`
+    + `<div class="tt-estadio">🏟️ ${sede.estadio}</div>`
+    + `<div class="tt-nota">${sede.nota}</div>`;
+  tt.style.display = 'block';
+  moverTooltipSede(evt);
+}
+function moverTooltipSede(evt) {
+  const tt = document.getElementById('nodoTooltip');
+  if (!tt || tt.style.display === 'none') return;
+  const pad = 14;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  const rect = tt.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - 8) x = evt.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = evt.clientY - rect.height - pad;
+  tt.style.left = x + 'px';
+  tt.style.top = y + 'px';
+}
+function ocultarTooltipSede() {
+  const tt = document.getElementById('nodoTooltip');
+  if (tt) tt.style.display = 'none';
+}
+
+// ─── CLICK NODO (armar camino) ────────────────────────────────
+function clickNodo(idx) {
+  if (huboDragReciente) return;
+  if (!S.pregunta?.activa) return;
+  if (!me) {
+    alert('Primero unite al juego con tu nombre (panel derecho).');
+    return;
+  }
+  const miDato = S.ranking?.find(r => r.nombre === me);
+  if (miDato?.respondio) return;
+
+  // toggle: si ya está al final, quitar; si no, agregar
+  if (caminoSeleccionado[caminoSeleccionado.length-1] === idx) {
+    caminoSeleccionado.pop();
+  } else {
+    caminoSeleccionado.push(idx);
+  }
+
+  actualizarCaminoUI();
+}
+
+function actualizarCaminoUI() {
+  actualizarCaminoVisual();
+  const preview = document.getElementById('caminoPreview');
+  if (preview) {
+    preview.textContent = caminoSeleccionado.length
+      ? caminoSeleccionado.map(i => `${i}(${NODOS[i]})`).join(' → ')
+      : '— ninguno —';
+  }
+  const vacio = caminoSeleccionado.length === 0;
+  const unido = !!me;
+  const btnEnviar = document.getElementById('btnEnviar');
+  const btnDeshacer = document.getElementById('btnDeshacer');
+  const aviso = document.getElementById('avisoUnirse');
+  if (btnEnviar) {
+    btnEnviar.disabled = vacio || !unido;
+    btnEnviar.title = unido ? 'Enviar tu camino al servidor' : 'Primero unite con tu nombre';
+  }
+  if (btnDeshacer) btnDeshacer.disabled = vacio || !unido;
+  if (aviso) aviso.style.display = unido ? 'none' : '';
+}
+
+function deshacerUltimoNodo() {
+  if (!caminoSeleccionado.length) return;
+  caminoSeleccionado.pop();
+  actualizarCaminoUI();
+}
+
+function actualizarCaminoVisual() {
+  // Reset todos los nodos
+  NODOS.forEach((_, i) => {
+    const el = document.getElementById(`node-grafoSvg-${i}`);
+    if (el) el.style.fill = COLORES_NODO[i % COLORES_NODO.length];
+  });
+  // Pintar camino
+  caminoSeleccionado.forEach((idx, pos) => {
+    const el = document.getElementById(`node-grafoSvg-${idx}`);
+    if (!el) return;
+    if (pos === 0) el.style.fill = 'var(--green)';
+    else if (pos === caminoSeleccionado.length-1) el.style.fill = 'var(--red)';
+    else el.style.fill = 'var(--accent)';
+  });
+}
+
+function limpiarCamino() {
+  caminoSeleccionado = [];
+  actualizarCaminoUI();
+}
+
+// ─── ANIMACIONES BFS / DFS ────────────────────────────────────
+async function animarBFS() {
+  if (simulacionActiva) return;
+  simulacionActiva = true;
+  const origen = parseInt(document.getElementById('bfsOrigen').value);
+  const orden = bfsLocal(origen);
+  document.getElementById('ordenVisita').textContent = 'BFS: ' + orden.map(i => NODOS[i]).join(' → ');
+  await animarOrden(orden, 'bfs', 'grafoSvg2');
+  simulacionActiva = false;
+}
+
+async function animarDFS() {
+  if (simulacionActiva) return;
+  simulacionActiva = true;
+  const origen = parseInt(document.getElementById('dfsOrigen').value);
+  const orden = dfsLocal(origen);
+  document.getElementById('ordenVisita').textContent = 'DFS: ' + orden.map(i => NODOS[i]).join(' → ');
+  await animarOrden(orden, 'dfs', 'grafoSvg2');
+  simulacionActiva = false;
+}
+
+async function animarOrden(orden, tipo, svgId) {
+  // Reset colores
+  NODOS.forEach((_, i) => {
+    const el = document.getElementById(`node-${svgId}-${i}`);
+    if (el) el.style.fill = COLORES_NODO[i % COLORES_NODO.length];
+  });
+  // Animar paso a paso
+  for (let step = 0; step < orden.length; step++) {
+    const nodo = orden[step];
+    const el = document.getElementById(`node-${svgId}-${nodo}`);
+    if (el) {
+      el.style.fill = tipo === 'bfs' ? 'var(--green)' : 'var(--purple)';
+      el.style.r = '30';
+      await sleep(600);
+      el.style.r = '24';
+    }
+  }
+}
+
+// BFS local en JS (refleja el Java)
+function bfsLocal(origen) {
+  const n = NODOS.length, vis = new Array(n).fill(false), orden = [], cola = [origen];
+  vis[origen] = true;
+  while (cola.length) {
+    const u = cola.shift();
+    orden.push(u);
+    for (let v = 0; v < n; v++) {
+      if (MATRIZ[u][v] !== 0 && !vis[v]) { vis[v] = true; cola.push(v); }
+    }
+  }
+  return orden;
+}
+
+// DFS local en JS
+function dfsLocal(origen) {
+  const n = NODOS.length, vis = new Array(n).fill(false), orden = [];
+  function rec(u) { vis[u] = true; orden.push(u); for (let v=0;v<n;v++) if(MATRIZ[u][v]&&!vis[v])rec(v); }
+  rec(origen);
+  return orden;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── MATRIZ ───────────────────────────────────────────────────
+function renderMatriz() {
+  if (!NODOS.length || !MATRIZ.length) return;
+  const cont = document.getElementById('matrizContainer');
+  if (!cont) return;
+  let html = '<table class="mat-table"><thead><tr><th>—</th>';
+  NODOS.forEach((n,i) => html += `<th>${i}<br><span style="font-weight:400;color:var(--muted)">${n.slice(0,3)}</span></th>`);
+  html += '</tr></thead><tbody>';
+  MATRIZ.forEach((fila, i) => {
+    html += `<tr><th>${i}<br><span style="font-weight:400;color:var(--muted)">${NODOS[i].slice(0,3)}</span></th>`;
+    fila.forEach((v, j) => {
+      if (i === j) html += `<td class="mat-diag">0</td>`;
+      else if (v > 0) html += `<td class="mat-cell-on">${v}</td>`;
+      else html += `<td class="mat-cell-off">0</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
+function consultarArista() {
+  const u = parseInt(document.getElementById('qU').value);
+  const v = parseInt(document.getElementById('qV').value);
+  const peso = MATRIZ[u]?.[v] ?? 0;
+  const res = document.getElementById('consultaResult');
+  if (peso > 0)
+    res.innerHTML = `<span class="text-success">✅ mat[${u}][${v}] = ${peso} → Están conectados con peso ${peso}</span>`;
+  else
+    res.innerHTML = `<span class="text-danger">❌ mat[${u}][${v}] = 0 → No hay arista</span>`;
+}
+
+// ─── RANKING ──────────────────────────────────────────────────
+function renderRanking() {
+  const ranking = S.ranking || [];
+  const p = S.pregunta;
+
+  function rowHtml(j, i) {
+    const estado = p?.activa
+      ? (j.respondio ? (j.correcto ? 'correcto' : 'incorrecto') : 'esperando')
+      : '';
+    const badgeEstado = j.respondio
+      ? (j.correcto ? `<span class="rank-badge badge-correcto">✅ +${j.puntos}pts</span>`
+                    : `<span class="rank-badge badge-incorrecto">❌</span>`)
+      : (p?.activa ? `<span class="rank-badge badge-esperando pulsing">⏳</span>` : '');
+    const badgeRacha = j.racha >= 3 ? `<span class="rank-badge badge-racha">🔥×${j.racha}</span>` : '';
+    const numClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1;
+    const esMio = j.nombre === me ? 'border-color:var(--accent);' : '';
+    return `<div class="rank-row ${estado}" style="${esMio}">
+      <span class="rank-num ${numClass}">${medal}</span>
+      <span class="rank-nombre">${j.nombre}</span>
+      ${badgeRacha} ${badgeEstado}
+      <span class="rank-pts">${j.puntaje}</span>
+    </div>`;
+  }
+
+  const html = ranking.map((j,i) => rowHtml(j,i)).join('') || '<p class="text-muted text-center p-3">Nadie se unió aún</p>';
+  const el1 = document.getElementById('rankingJuego');
+  if (el1) el1.innerHTML = html;
+  const el2 = document.getElementById('rankingGlobal');
+  if (el2) el2.innerHTML = html;
+}
+
+// ─── ACCIONES JUGADOR ─────────────────────────────────────────
+async function unirse() {
+  const nombre = document.getElementById('inputNombre').value.trim();
+  if (!nombre) return;
+  const r = await api('/api/unirse', {nombre});
+  if (r.error) { alert(r.error); return; }
+  me = nombre;
+  localStorage.setItem('grafogame_nombre', nombre);
+  document.getElementById('panelUnirse').style.display = 'none';
+  await load();
+  actualizarCaminoUI();
+}
+
+async function enviarRespuesta() {
+  if (!me) {
+    alert('Tenés que unirte al juego con tu nombre antes de enviar la respuesta.');
+    return;
+  }
+  if (caminoSeleccionado.length === 0) return;
+  const r = await api('/api/responder', {nombre: me, camino: caminoSeleccionado.join(',')});
+  if (r.error) { alert(r.error); return; }
+  const msg = r.correcta
+    ? `✅ ¡Correcto! +${r.puntos} puntos (${(r.tiempoMs/1000).toFixed(1)}s)`
+    : `❌ Incorrecto. +${r.puntos} pts parciales`;
+  // feedback visual
+  const btn = document.getElementById('btnEnviar');
+  btn.textContent = msg;
+  btn.disabled = true;
+  await load();
+}
+
+// ─── ADMIN ────────────────────────────────────────────────────
+function openAdmin() {
+  document.getElementById('adminLoginPass').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('adminLoginModal')).show();
+}
+function adminLogin() {
+  const p = document.getElementById('adminLoginPass').value;
+  if (p !== 'profe2026') { alert('Contraseña incorrecta'); return; }
+  adminPass = p;
+  const loginEl = document.getElementById('adminLoginModal');
+  bootstrap.Modal.getInstance(loginEl)?.hide() ?? bootstrap.Modal.getOrCreateInstance(loginEl).hide();
+  renderAdminPreguntas();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('adminModal')).show();
+}
+
+function renderAdminPreguntas() {
+  const lista = S.preguntas || [];
+  const activaId = S.pregunta?.activa ? S.pregunta.id : null;
+  let html = '<div class="text-muted small mb-2">Clic en <strong>Activar</strong> para lanzar la pregunta al curso:</div>';
+  if (!lista.length) {
+    html += '<p class="text-muted small mb-0">No hay preguntas. Usá «Crear y activar».</p>';
+  } else {
+    lista.forEach(pr => {
+      const esActiva = pr.id === activaId;
+      html += `<div class="card p-2 mb-2 border-${esActiva ? 'success' : 'secondary'}">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="badge bg-${esActiva ? 'success' : 'secondary'}">#${pr.id}</span>
+          <span class="small flex-fill">${pr.etiqueta || pr.tipo}</span>
+          ${esActiva
+            ? '<span class="text-success small fw-bold">● EN VIVO</span>'
+            : `<button class="btn btn-sm btn-success" onclick="activarPregunta(${pr.id})">Activar</button>`}
+        </div>
+      </div>`;
+    });
+  }
+  document.getElementById('listaPreguntasAdmin').innerHTML = html;
+  const btn = document.getElementById('btnCompletarEnviar');
+  if (btn) btn.disabled = !me || !S.pregunta?.activa;
+}
+
+async function completarAutomatico(enviar) {
+  if (!S.pregunta?.activa) {
+    alert('Primero activá una pregunta desde Admin.');
+    return;
+  }
+  const r = await api('/api/resolver');
+  if (r.error) { alert(r.error); return; }
+  const nums = Array.isArray(r.respuesta) ? r.respuesta : [];
+  if (r.tipo === 'MATRIZ_QUERY') {
+    const ok = nums[0] === 1;
+    alert('Pregunta de matriz (no usa clic en nodos).\\nSolución: ' + (ok ? 'conectados, peso ' + nums[1] : 'no conectados (0)'));
+    return;
+  }
+  if (!nums.length) {
+    alert('No hay solución para esta pregunta (¿nodos desconectados?).');
+    return;
+  }
+  caminoSeleccionado = nums.slice();
+  actualizarCaminoUI();
+  showTab('juego');
+  if (enviar) {
+    if (!me) {
+      alert('Para enviar la respuesta, unite al juego con tu nombre (panel de arriba).\\nYa rellené el camino correcto en el grafo.');
+      return;
+    }
+    await enviarRespuesta();
+  }
+}
+
+async function activarPregunta(id) {
+  const r = await api('/api/activar', {pass: adminPass, id});
+  if (r.error) { alert(r.error); return; }
+  await load();
+  renderAdminPreguntas();
+  caminoSeleccionado = [];
+  limpiarCamino();
+}
+
+async function crearPregunta() {
+  const tipo   = document.getElementById('nuevoTipo').value;
+  const origen = parseInt(document.getElementById('nuevoOrigen').value);
+  const destino= parseInt(document.getElementById('nuevoDestino').value);
+  const r = await api('/api/nueva_pregunta', {pass: adminPass, tipo, origen: String(origen), destino: String(destino)});
+  if (r.error) { alert(r.error); return; }
+  await activarPregunta(r.id);
+}
+
+async function editarArista() {
+  const u    = parseInt(document.getElementById('aristU').value);
+  const v    = parseInt(document.getElementById('aristV').value);
+  const peso = parseInt(document.getElementById('aristPeso').value);
+  const r = await api('/api/editar_arista', {pass: adminPass, u: String(u), v: String(v), peso: String(peso)});
+  if (r.error) { alert(r.error); return; }
+  await load();
+  renderAdminPreguntas();
+  alert('Arista actualizada');
+}
+
+async function mostrarSolucion() {
+  const r = await api('/api/resolver');
+  if (r.error) { alert(r.error); return; }
+  // r.respuesta ya es un array (el server lo serializa como JSON array,
+  // no como string). No hace falta JSON.parse.
+  const nums = Array.isArray(r.respuesta) ? r.respuesta : [];
+  if (r.tipo === 'MATRIZ_QUERY') {
+    // Para preguntas de matriz, la respuesta es [conectado(0/1), peso?]
+    const conectado = nums[0] === 1;
+    alert('Solución (MATRIZ_QUERY):\\n' + (conectado
+      ? '✅ Conectados con peso ' + nums[1]
+      : '❌ No están conectados'));
+    return;
+  }
+  alert('Solución (' + r.tipo + '):\\n' + nums.map(i => i + '(' + NODOS[i] + ')').join(' → '));
+  // animar en el grafo
+  if (r.tipo === 'BFS_CAMINO' || r.tipo === 'BFS_ORDEN') {
+    await animarOrden(nums, 'bfs', 'grafoSvg2');
+  } else if (r.tipo === 'DFS_ORDEN') {
+    await animarOrden(nums, 'dfs', 'grafoSvg2');
+  }
+}
+
+async function reiniciar() {
+  if (!confirm('¿Reiniciar el juego? Se borrarán todos los puntajes.')) return;
+  const r = await api('/api/reiniciar', {pass: adminPass});
+  if (r.error) { alert(r.error); return; }
+  me = null;
+  localStorage.removeItem('grafogame_nombre');
+  document.getElementById('panelUnirse').style.display = '';
+  await load();
+  alert('Juego reiniciado');
+}
+
+// ─── SELECTORES ───────────────────────────────────────────────
+function poblarSelectores() {
+  if (!NODOS.length) return;
+  const ids = ['bfsOrigen','dfsOrigen','nuevoOrigen','nuevoDestino','qU','qV','aristU','aristV'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.options.length === NODOS.length) return;
+    el.innerHTML = NODOS.map((n,i) => `<option value="${i}">${i} — ${n}</option>`).join('');
+  });
+}
+
+// ─── TABS ─────────────────────────────────────────────────────
+function showTab(tab) {
+  ['juego','grafo','matriz','ranking'].forEach(t => {
+    const el = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('#mainTabs .nav-link').forEach((el, i) => {
+    el.classList.toggle('active', ['juego','grafo','matriz','ranking'][i] === tab);
+  });
+  if (tab === 'grafo') setTimeout(() => { renderGrafoSvg('grafoSvg2'); }, 50);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────
+async function api(url, body) {
+  const opts = body
+    ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}
+    : {method:'GET'};
+  const r = await fetch(url, opts);
+  return r.json();
+}
+</script>
+</body>
+</html>

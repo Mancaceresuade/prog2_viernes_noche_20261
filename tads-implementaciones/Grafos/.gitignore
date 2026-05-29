@@ -1,0 +1,11 @@
+# Java — compilados (no subir a Git)
+*.class
+bin/
+out/
+
+# Datos locales del juego en ejecución
+grafogame_data.txt
+
+# IDE (opcional)
+.idea/
+*.iml
